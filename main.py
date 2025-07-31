@@ -1,15 +1,10 @@
-from datetime import datetime, date
-from decimal import Decimal
-from typing import Optional
-from sqlmodel import SQLModel, Field,Boolean,  create_engine, Session, select, Column
-from sqlalchemy import Index, text, String, DateTime, Numeric
-from fastapi import FastAPI
+from fastapi import Path
 import structlog
+from fastapi import FastAPI
+from fastapi import Path
+from sqlmodel import create_engine, Session
 
-
-
-
-
+from src.services.metrics_services import get_metric_data
 
 # Configure logging
 structlog.configure(
@@ -29,7 +24,7 @@ structlog.configure(
 log = structlog.get_logger()
 
 # Database configuration
-DATABASE_URL = "postgresql://postgres:postgres@localhost:5432/intropy-test"
+DATABASE_URL = "postgresql://postgres:admin@localhost:5432/intropy-test"
 
 # Create engine only when needed (not during imports for Alembic)
 def get_engine():
@@ -47,6 +42,18 @@ app = FastAPI(title="Customer API", version="0.1.0")
 async def root():
     return {"message": "Customer API", "status": "running"}
 
+@app.get("/health", tags=["Health"], summary="Health Check", response_description="Health check status")
+def health_check():
+    """Simple health check endpoint. Returns 'ok' if the API is healthy."""
+    return {"status": "ok"}
+
+@app.get("/metrics/{metric_id}")
+def get_metric(metric_id: str = Path(..., title="The ID of the metric to retrieve")):
+    """Retrieve metric data for a given metric ID."""
+    engine = get_engine()
+    with Session(engine) as session:
+        return get_metric_data(session, metric_id)
+
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    uvicorn.run(app, host="localhost", port=8000)
