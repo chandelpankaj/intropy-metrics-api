@@ -1,10 +1,14 @@
-from fastapi import Path
-import structlog
-from fastapi import FastAPI
-from fastapi import Path
-from sqlmodel import create_engine, Session
+import sys
+sys.path.append("src")
 
-from src.services.metrics_services import get_metric_data
+from fastapi import FastAPI, Path, Request
+from fastapi.responses import JSONResponse
+from src.db import get_session
+from src.services.metrics_service import get_metric_data
+from src.exceptions import AppException
+import structlog
+from typing import List, Dict, Any
+from pydantic import BaseModel
 
 # Configure logging
 structlog.configure(
@@ -23,23 +27,42 @@ structlog.configure(
 
 log = structlog.get_logger()
 
-# Database configuration
-DATABASE_URL = "postgresql://postgres:admin@localhost:5432/intropy-test"
-
-# Create engine only when needed (not during imports for Alembic)
-def get_engine():
-    return create_engine(DATABASE_URL, echo=True)
-
-def get_session():
-    engine = get_engine()
-    with Session(engine) as session:
-        yield session
+class MetricDataResponse(BaseModel):
+    metric_id: str
+    data: List[Dict[str, Any]]
 
 # FastAPI app
-app = FastAPI(title="Customer API", version="0.1.0")
+app = FastAPI(
+    title="Customer API",
+    version="0.1.0"
+)
 
-@app.get("/")
+# Exception Handlers
+@app.exception_handler(AppException)
+async def app_exception_handler(request: Request, exc: AppException):
+    log.error("AppException", code=exc.code, message=exc.message, details=exc.details, path=request.url.path)
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={
+            "error": {
+                "code": exc.code,
+                "message": exc.message,
+                "details": exc.details,
+            }
+        }
+    )
+
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    log.error("Unhandled exception", error=str(exc), path=request.url.path)
+    return JSONResponse(
+        status_code=500,
+        content={"detail": "Internal server error"}
+    )
+
+@app.get("/", tags=["Health"], summary="API Status", response_description="API status message")
 async def root():
+    """Health and status endpoint. Returns a simple status message to verify the API is running."""
     return {"message": "Customer API", "status": "running"}
 
 @app.get("/health", tags=["Health"], summary="Health Check", response_description="Health check status")
@@ -47,12 +70,35 @@ def health_check():
     """Simple health check endpoint. Returns 'ok' if the API is healthy."""
     return {"status": "ok"}
 
-@app.get("/metrics/{metric_id}")
-def get_metric(metric_id: str = Path(..., title="The ID of the metric to retrieve")):
-    """Retrieve metric data for a given metric ID."""
-    engine = get_engine()
-    with Session(engine) as session:
-        return get_metric_data(session, metric_id)
+@app.get(
+    "/metrics/{metric_id}",
+    tags=["Metrics"],
+    summary="Get Metric Data",
+    response_model=MetricDataResponse,
+    response_description="Metric data for the given metric ID",
+    responses={
+        404: {"description": "Metric or query not found"},
+        500: {"description": "Internal server error"}
+    },
+)
+def get_metric(
+    metric_id: str = Path(
+        ...,
+        title="The ID of the metric to retrieve",
+        min_length=1,
+        max_length=64,
+        example="metric_123"
+    )
+):
+    """Retrieve metric data for a given metric ID.
+    - **metric_id**: The unique identifier of the metric definition.
+    Returns metric data as a list of records."""
+    try:
+        with get_session() as session:
+            return get_metric_data(session, metric_id)
+    except Exception as exc:
+        log.error("Error in /metrics/{metric_id}", error=str(exc), metric_id=metric_id)
+        raise
 
 if __name__ == "__main__":
     import uvicorn
