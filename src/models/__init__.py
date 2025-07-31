@@ -22,7 +22,6 @@ class Metrics(SQLModel, table=True):
     parts_flagged: Optional[int] = None
     obsolescence_val: Optional[float] = None
     alert_category: Optional[str] = None
-    # Extendable for future metric columns
 
 class Layout(SQLModel, table=True):
     metric_id: str = Field(primary_key=True)

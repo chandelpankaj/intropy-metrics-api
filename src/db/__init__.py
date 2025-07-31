@@ -1,6 +1,7 @@
 from sqlmodel import create_engine, Session
+from src.config import settings
 
-engine = create_engine("postgresql://postgres:admin@localhost:5432/intropy-test", echo=True)
+engine = create_engine(settings.database_url, echo=True)
 
 def get_session():
     return Session(engine)
