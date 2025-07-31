@@ -1,0 +1,9 @@
+id,date,obsolescence,alert_type,parts_flagged,obsolescence_val,alert_category
+cmcw1zaxw0003p1qk1fo9ss8m,2025-07-01,1000,,,,
+cmcw1zaxw0003p1qk1fo9ss8m,2025-07-02,1010,,,,
+cmcw3crxh0001poqkt5ctjjb0,2025-06-01,,critical,,,
+cmcw3crxh0001poqkt5ctjjb0,2025-06-02,,warning,,,
+cmcw3etd80002poqk6era3ko9,2025-07-01,,,12,,
+cmcw3etd80002poqk6era3ko9,2025-07-02,,,13,,
+cmcxgnpq10001wpqk36vpzseb,2025-06-02,,,,123.45,
+cmcxhohny0001ykqk3fnzs1qy,2025-06-02,,,,,Need approval

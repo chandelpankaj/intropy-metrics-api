@@ -1,11 +1,15 @@
-from sqlmodel import SQLModel, create_engine, Session
-from models import Metric, Query, Layout
+import sys
+sys.path.append("src")
+
+from sqlmodel import SQLModel, Session
+from src.models import MetricDefinition, Query, Layout, Metrics
+from src.db import engine
 import json
 import csv
 from pathlib import Path
+from datetime import date, timedelta
 
 DATABASE_URL = "postgresql://postgres:admin@localhost:5432/intropy-test"
-engine = create_engine(DATABASE_URL, echo=True)
 
 def create_db_and_tables():
     SQLModel.metadata.create_all(engine)
@@ -27,22 +31,39 @@ def load_sample_data():
             if not query_id:
                 print(f"Skipping metric {item.get('id')} due to missing query_id")
                 continue
-            metrics.append(Metric(id=item['id'], query_id=query_id, is_editable=item['isEditable']))
+            metrics.append(MetricDefinition(id=item['id'], query_id=query_id, is_editable=item['isEditable']))
         # Load layouts for 'lg' breakpoint (you can store the whole layouts dict if you want)
         layouts = []
         for layout in data.get('layouts', {}).get('lg', []):
             layouts.append(Layout(metric_id=layout['i'], layout_json=json.dumps(layout)))
+    # Load metric data from CSV
+    metric_data_path = Path(__file__).parent / 'data' / 'metric_data.csv'
+    metric_data_rows = []
+    with open(metric_data_path, 'r') as f:
+        reader = csv.DictReader(f)
+        for row in reader:
+            metric_data_rows.append(Metrics(
+                id=row['id'],
+                date=date.fromisoformat(row['date']),
+                obsolescence=float(row['obsolescence']) if row['obsolescence'] else None,
+                alert_type=row['alert_type'] or None,
+                parts_flagged=int(row['parts_flagged']) if row['parts_flagged'] else None,
+                obsolescence_val=float(row['obsolescence_val']) if row['obsolescence_val'] else None,
+                alert_category=row['alert_category'] or None,
+            ))
     # Insert into DB
     with Session(engine) as session:
         for query in queries:
             if not session.get(Query, query.id):
                 session.add(query)
         for metric in metrics:
-            if not session.get(Metric, metric.id):
+            if not session.get(MetricDefinition, metric.id):
                 session.add(metric)
         for layout in layouts:
             if not session.get(Layout, layout.metric_id):
                 session.add(layout)
+        for row in metric_data_rows:
+            session.add(row)
         session.commit()
     print("Sample data loaded successfully.")
 

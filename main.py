@@ -3,7 +3,7 @@ from decimal import Decimal
 from typing import Optional
 from sqlmodel import SQLModel, Field,Boolean,  create_engine, Session, select, Column
 from sqlalchemy import Index, text, String, DateTime, Numeric
-from fastapi import FastAPI, 
+from fastapi import FastAPI
 import structlog
 
 
