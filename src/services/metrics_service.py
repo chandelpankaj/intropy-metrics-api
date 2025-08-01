@@ -1,8 +1,10 @@
-from src.models import MetricDefinition, Query, Metrics
-from sqlmodel import Session, select
-from src.utils.exceptions import NotFoundException
-from sqlalchemy import text
 from uuid import uuid4
+
+from sqlalchemy import text
+from sqlmodel import Session, select
+
+from src.models import MetricDefinition, Query
+from src.utils.exceptions import NotFoundException
 
 
 def get_metric_data(session: Session, metric_id: str):
