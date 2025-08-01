@@ -1,11 +1,10 @@
 import sys
 sys.path.append("src")
 
-from fastapi import FastAPI, Request
-from fastapi.responses import JSONResponse
-from src.exceptions import AppException
+from fastapi import FastAPI
 import structlog
 from src.routes import metrics, health
+from src.utils.exceptions import register_exception_handlers
 
 # Configure logging
 structlog.configure(
@@ -29,32 +28,12 @@ app = FastAPI(
     version="0.1.0"
 )
 
+# Register exception handlers
+register_exception_handlers(app)
+
 # Include routers
 app.include_router(health.router, prefix="", tags=["Health"])
 app.include_router(metrics.router, prefix="", tags=["Metrics"])
-
-# Exception Handlers
-@app.exception_handler(AppException)
-async def app_exception_handler(request: Request, exc: AppException):
-    log.error("AppException", code=exc.code, message=exc.message, details=exc.details, path=request.url.path)
-    return JSONResponse(
-        status_code=exc.status_code,
-        content={
-            "error": {
-                "code": exc.code,
-                "message": exc.message,
-                "details": exc.details,
-            }
-        }
-    )
-
-@app.exception_handler(Exception)
-async def global_exception_handler(request: Request, exc: Exception):
-    log.error("Unhandled exception", error=str(exc), path=request.url.path)
-    return JSONResponse(
-        status_code=500,
-        content={"detail": "Internal server error"}
-    )
 
 if __name__ == "__main__":
     import uvicorn

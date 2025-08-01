@@ -1,8 +1,7 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends
 from sqlmodel import Session
 
 from src.db import get_session
-from src.exceptions import AppException
 from src.schemas.metrics import MetricDataResponse, MetricCreateRequest, MetricCreateResponse
 from src.services.metrics_service import get_metric_data, create_metric_service
 
@@ -28,21 +27,19 @@ async def get_metric(
     - **metric_id**: The unique identifier of the metric definition.
     Returns metric data as a list of records.
     """
-    try:
-        return get_metric_data(session, metric_id)
-    except AppException as exc:
-        raise HTTPException(status_code=exc.status_code, detail={
-            "code": exc.code,
-            "message": exc.message,
-            "details": exc.details
-        })
+    return get_metric_data(session, metric_id)
 
 @router.post(
     "/metrics",
     response_model=MetricCreateResponse,
     tags=["Metrics"],
     summary="Create a new metric (Mock AI)",
-    status_code=201
+    status_code=201,
+    responses={
+        201: {"description": "Metric created successfully"},
+        400: {"description": "Invalid request"},
+        500: {"description": "Internal server error"}
+    }
 )
 async def create_metric(
     request: MetricCreateRequest,
@@ -51,8 +48,4 @@ async def create_metric(
     """
     Accepts user input, simulates LLM-generated SQL, stores new metric & query.
     """
-    try:
-        result = create_metric_service(session, request.name, request.description)
-        return result
-    except Exception as e:
-        raise HTTPException(status_code=500, detail={"message": str(e)})
+    return create_metric_service(session, request.name, request.description)
